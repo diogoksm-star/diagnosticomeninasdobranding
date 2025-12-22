@@ -3,10 +3,10 @@ import QuizOpening from "./QuizOpening";
 import QuizQuestion from "./QuizQuestion";
 import QuizDataCapture, { LeadData } from "./QuizDataCapture";
 import QuizAnalyzing from "./QuizAnalyzing";
-import QuizResult from "./QuizResult";
+import QuizWhatsAppRedirect from "./QuizWhatsAppRedirect";
 import { quizQuestions, getResultByScore } from "./QuizData";
 
-type QuizStep = "opening" | "questions" | "capture" | "analyzing" | "result";
+type QuizStep = "opening" | "questions" | "capture" | "analyzing" | "whatsapp";
 
 interface QuizState {
   step: QuizStep;
@@ -58,17 +58,19 @@ const Quiz = () => {
       step: "analyzing",
     }));
 
-    // Here you would typically send the data to your CRM (Kommo)
+    const result = getResultByScore(state.totalScore);
+    
+    // Log data for future Kommo integration
     console.log("Lead captured:", {
       ...data,
       answers: state.answers,
       totalScore: state.totalScore,
-      result: getResultByScore(state.totalScore).id,
+      result: result.id,
     });
   };
 
   const handleAnalyzingComplete = useCallback(() => {
-    setState((prev) => ({ ...prev, step: "result" }));
+    setState((prev) => ({ ...prev, step: "whatsapp" }));
   }, []);
 
   const result = getResultByScore(state.totalScore);
@@ -94,8 +96,11 @@ const Quiz = () => {
         <QuizAnalyzing onComplete={handleAnalyzingComplete} />
       )}
 
-      {state.step === "result" && (
-        <QuizResult result={result} score={state.totalScore} />
+      {state.step === "whatsapp" && state.leadData && (
+        <QuizWhatsAppRedirect
+          resultId={result.id}
+          userName={state.leadData.name}
+        />
       )}
     </div>
   );
