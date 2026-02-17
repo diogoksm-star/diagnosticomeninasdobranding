@@ -60,13 +60,28 @@ const Quiz = () => {
 
     const result = getResultByScore(state.totalScore);
     
-    // Log data for future Kommo integration
-    console.log("Lead captured:", {
-      ...data,
+    const payload = {
+      name: data.name,
+      email: data.email,
+      whatsapp: data.whatsapp,
       answers: state.answers,
       totalScore: state.totalScore,
       result: result.id,
-    });
+      resultTitle: result.title,
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log("Lead captured:", payload);
+
+    // Send to Kommo via Kwid webhook (fire-and-forget)
+    fetch(
+      "https://data.widgets.wearekwid.com/api/webhook/34486363/15c0adf418ac74139c4d580c53e3c9e8c89c7da310b4be3e058c9f267bf085e6",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    ).catch((err) => console.error("Webhook error:", err));
   };
 
   const handleAnalyzingComplete = useCallback(() => {
