@@ -97,7 +97,7 @@ const QuizResult = ({ result, score, userName, whatsappNumber }: QuizResultProps
               size="lg"
               className="h-16 rounded-full px-12 text-lg font-bold shadow-brand transition-all hover:scale-105 sm:text-xl"
             >
-              👉 QUERO SER INCOMPARÁVEL
+              Quero ajustar meu posicionamento agora
             </Button>
           </div>
         </div>
