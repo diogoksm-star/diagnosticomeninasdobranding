@@ -4,7 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Search, Users, RefreshCw, Download } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { LogOut, Search, Users, RefreshCw, Download, CalendarIcon, X } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import LeadAnswersDialog from "@/components/crm/LeadAnswersDialog";
 
 interface Lead {
   id: string;
@@ -41,6 +47,8 @@ const CRM = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterResult, setFilterResult] = useState<string>("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
@@ -140,7 +148,11 @@ const CRM = () => {
 
     const matchesFilter = !filterResult || lead.result_id === filterResult;
 
-    return matchesSearch && matchesFilter;
+    const leadDate = new Date(lead.created_at);
+    const matchesDateFrom = !dateFrom || leadDate >= dateFrom;
+    const matchesDateTo = !dateTo || leadDate <= new Date(dateTo.getTime() + 86400000 - 1);
+
+    return matchesSearch && matchesFilter && matchesDateFrom && matchesDateTo;
   });
 
   const stats = {
@@ -249,6 +261,57 @@ const CRM = () => {
           </div>
         </div>
 
+        {/* Date Filters */}
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("rounded-full gap-1", dateFrom && "border-primary text-primary")}>
+                <CalendarIcon className="h-3.5 w-3.5" />
+                {dateFrom ? format(dateFrom, "dd/MM/yyyy", { locale: ptBR }) : "Data início"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateFrom}
+                onSelect={setDateFrom}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("rounded-full gap-1", dateTo && "border-primary text-primary")}>
+                <CalendarIcon className="h-3.5 w-3.5" />
+                {dateTo ? format(dateTo, "dd/MM/yyyy", { locale: ptBR }) : "Data fim"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateTo}
+                onSelect={setDateTo}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+
+          {(dateFrom || dateTo) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}
+              className="rounded-full gap-1 text-xs text-muted-foreground"
+            >
+              <X className="h-3 w-3" />
+              Limpar datas
+            </Button>
+          )}
+        </div>
+
         {/* Leads Table */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -299,8 +362,8 @@ const CRM = () => {
                     <td className="px-4 py-3 text-center text-muted-foreground">
                       {lead.total_score}/65
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {lead.answers?.join(", ")}
+                    <td className="px-4 py-3">
+                      <LeadAnswersDialog answers={lead.answers} leadName={lead.name} />
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
                       {[lead.utm_source, lead.utm_medium, lead.utm_campaign]
