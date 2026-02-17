@@ -1,46 +1,81 @@
 
 
-## Integrar Quiz com Kommo CRM via Webhook Kwid
+## Adicionar UTM Parameters + Mover Webhook para Edge Function
 
-### Abordagem
+### Contexto do teste
 
-Como o webhook da Kwid aceita POST direto, vamos enviar os dados do lead diretamente do frontend, sem necessidade de backend ou Edge Function. Isso simplifica a implementacao e evita configuracoes extras.
+O fluxo do quiz foi testado de ponta a ponta e funciona corretamente. O diagnostico aparece na pagina e o botao WhatsApp esta no final. Porem, o webhook da Kwid retornou **erro 402 (Payment Required)** -- isso e um problema no lado da Kwid/Kommo (plano ou cota). Os dados estao sendo enviados corretamente pelo quiz.
 
-### O que sera feito
+### 1. Adicionar parametros UTM ao payload
 
-**1. Atualizar `src/components/quiz/Quiz.tsx`**
-- No `handleLeadCapture`, alem do console.log, adicionar um `fetch` POST para o webhook da Kwid
-- Enviar todos os dados do lead: nome, email, WhatsApp, respostas (Q1-Q13), pontuacao total, resultado do diagnostico, data/hora
-- O envio sera fire-and-forget (nao bloqueia o fluxo do quiz — o usuario continua vendo "Analisando..." normalmente)
-- Tratar erros silenciosamente (apenas log no console)
+Capturar automaticamente os parametros UTM da URL quando o usuario acessa o quiz (ex: `?utm_source=instagram&utm_medium=stories&utm_campaign=lancamento`).
 
-**2. Dados enviados ao webhook**
+**Alteracao em `src/components/quiz/Quiz.tsx`:**
+- Ao iniciar o quiz, extrair `utm_source`, `utm_medium`, `utm_campaign`, `utm_term` e `utm_content` da URL usando `URLSearchParams`
+- Armazenar no estado do quiz
+- Incluir no payload enviado ao webhook
 
+**Dados adicionais no payload:**
 ```text
 {
-  name: "Nome do usuario",
-  email: "email@exemplo.com",
-  whatsapp: "(11) 99999-9999",
-  answers: [3, 2, 4, 1, ...],      // pontos de cada resposta (Q1-Q13)
-  totalScore: 42,
-  result: "diferenciado",           // ID do resultado
-  resultTitle: "POSICIONAMENTO DIFERENCIADO",
-  timestamp: "2026-02-17T14:30:00Z"
+  ...dados existentes,
+  utm_source: "instagram",
+  utm_medium: "stories",
+  utm_campaign: "lancamento",
+  utm_term: "",
+  utm_content: ""
 }
 ```
 
-### Detalhes tecnicos
+### 2. Mover webhook para Edge Function (seguranca)
 
-- URL do webhook: `https://data.widgets.wearekwid.com/api/webhook/34486363/15c0adf418ac74139c4d580c53e3c9e8c89c7da310b4be3e058c9f267bf085e6`
-- Metodo: POST com `Content-Type: application/json`
-- Sem autenticacao necessaria (o token ja esta na URL)
-- Envio assincrono — nao interfere na experiencia do usuario
+Atualmente a URL do webhook fica exposta no codigo frontend. Vamos mover para uma Edge Function no Supabase para que a URL fique protegida no servidor.
 
-### Nota sobre seguranca
+**Pre-requisito:** O projeto precisa estar conectado ao Lovable Cloud ou Supabase.
 
-A URL do webhook ficara visivel no codigo frontend. Isso e aceitavel para webhooks de ingestao de dados (somente escrita), mas se no futuro voce quiser proteger essa URL, podemos mover para uma Edge Function com Supabase Cloud.
+**Criar `supabase/functions/send-to-kommo/index.ts`:**
+- Recebe os dados do lead via POST do frontend
+- Faz o POST para o webhook da Kwid usando a URL armazenada como secret
+- Retorna sucesso/erro
+- Inclui CORS headers
 
-### Resultado final
+**Criar secret:**
+- `KOMMO_WEBHOOK_URL` = URL completa do webhook da Kwid
 
-Quando o usuario preencher nome, email e WhatsApp no quiz, os dados serao enviados automaticamente para o Kommo via webhook da Kwid, sem nenhuma acao adicional necessaria.
+**Atualizar `src/components/quiz/Quiz.tsx`:**
+- Trocar o `fetch` direto para o webhook por `supabase.functions.invoke('send-to-kommo', { body: payload })`
+- Importar o cliente Supabase
+
+**Atualizar `supabase/config.toml`:**
+- Adicionar configuracao da funcao com `verify_jwt = false` (quiz nao tem autenticacao)
+
+### Secao tecnica
+
+**Edge Function (`supabase/functions/send-to-kommo/index.ts`):**
+```text
+- CORS headers padrao
+- OPTIONS handler para preflight
+- Recebe POST com body JSON
+- Le KOMMO_WEBHOOK_URL do Deno.env
+- Faz fetch POST para o webhook
+- Retorna status da resposta
+```
+
+**UTM no Quiz.tsx:**
+```text
+- useEffect no mount para ler window.location.search
+- Armazenar UTMs no estado (ou ref)
+- Incluir no payload do handleLeadCapture
+```
+
+### Ordem de implementacao
+
+1. Primeiro: conectar ao Lovable Cloud (se nao estiver conectado)
+2. Segundo: criar o secret KOMMO_WEBHOOK_URL
+3. Terceiro: criar a Edge Function send-to-kommo
+4. Quarto: atualizar Quiz.tsx com UTMs + chamada a Edge Function
+
+### Nota importante
+
+O erro 402 do webhook da Kwid precisa ser resolvido no painel da Kwid/Kommo. As melhorias acima nao corrigem esse erro -- ele e um problema de pagamento/cota do servico externo.
 
