@@ -5,10 +5,11 @@ import { cn } from "@/lib/utils";
 interface QuizResultProps {
   result: QuizResultType;
   score: number;
+  userName?: string;
   whatsappNumber?: string;
 }
 
-const QuizResult = ({ result, score, whatsappNumber }: QuizResultProps) => {
+const QuizResult = ({ result, score, userName, whatsappNumber }: QuizResultProps) => {
   const getResultColor = () => {
     switch (result.id) {
       case "invisivel":
@@ -35,12 +36,17 @@ const QuizResult = ({ result, score, whatsappNumber }: QuizResultProps) => {
     }
   };
 
+  const whatsappMessages: Record<string, string> = {
+    invisivel: "Olá! Fiz o diagnóstico de posicionamento e quero receber meu resultado: Posicionamento Invisível 🔴",
+    notado: "Olá! Fiz o diagnóstico de posicionamento e quero receber meu resultado: Posicionamento Notado 🟠",
+    diferenciado: "Olá! Fiz o diagnóstico de posicionamento e quero receber meu resultado: Posicionamento Diferenciado 🟢",
+  };
+
   const handleCTA = () => {
-    const message = encodeURIComponent(
-      `Olá! Fiz o diagnóstico de posicionamento e meu resultado foi: ${result.title}. Quero ser incomparável!`
-    );
+    const message = whatsappMessages[result.id] || whatsappMessages.invisivel;
+    const fullMessage = encodeURIComponent(`${message}\n\nMeu nome: ${userName || "Não informado"}`);
     const number = whatsappNumber || "5500000000000";
-    window.open(`https://wa.me/${number}?text=${message}`, "_blank");
+    window.open(`https://wa.me/${number}?text=${fullMessage}`, "_blank");
   };
 
   return (
