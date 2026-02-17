@@ -1,57 +1,48 @@
 
 
-## Exportar CSV + Criar Usuario Admin
+## Melhorias no CRM e botao WhatsApp
 
-### 1. Criar usuario admin do CRM
+### 1. Detalhamento das respostas no CRM
 
-Criar uma Edge Function temporaria ou usar a Edge Function existente para registrar o usuario admin com as credenciais fornecidas e atribuir a role "admin" na tabela `user_roles`.
-
-**Abordagem:** Criar o usuario via `supabase.auth.admin.createUser()` usando o service role key em uma Edge Function, e inserir a role admin na tabela `user_roles`.
-
-- Email: contato.thewhole@gmail.com
-- Senha: Alicate2025@
-
-**Arquivo: `supabase/functions/create-admin/index.ts`**
-- Funcao unica para criar o usuario e atribuir role admin
-- Usa service role key para criar usuario confirmado (sem necessidade de verificar email)
-- Insere registro na tabela `user_roles` com role = 'admin'
-- Sera invocada uma vez e depois pode ser removida
-
-### 2. Adicionar exportacao CSV ao CRM
+Na tabela de leads do CRM, a coluna "Respostas" atualmente mostra apenas os numeros (ex: "3, 2, 4, 1..."). Vamos substituir por um botao/tooltip que ao clicar expande um painel mostrando cada pergunta com a resposta escolhida e a pontuacao.
 
 **Arquivo: `src/pages/CRM.tsx`**
-- Adicionar botao "Exportar CSV" ao lado dos filtros
-- Funcao `exportToCSV` que:
-  - Pega os leads filtrados (respeitando busca e filtro ativo)
-  - Gera string CSV com headers: Nome, Email, WhatsApp, Resultado, Pontuacao, Respostas, UTM Source, UTM Medium, UTM Campaign, Data
-  - Cria um Blob e faz download automatico com nome `leads-YYYY-MM-DD.csv`
-- Icone de download no botao (lucide-react `Download`)
+- Importar `quizQuestions` de `QuizData.ts` para mapear as respostas aos textos das perguntas
+- Substituir a celula de texto simples por um componente expansivel (Collapsible ou Dialog) que mostra:
+  - Pergunta 1: "resposta escolhida" (X pts)
+  - Pergunta 2: "resposta escolhida" (X pts)
+  - ...e assim por diante para as 13 perguntas
+- Usar um botao "Ver detalhes" na celula da tabela que abre um Dialog com o detalhamento completo
+
+### 2. Filtro por datas no CRM
+
+**Arquivo: `src/pages/CRM.tsx`**
+- Adicionar dois seletores de data (de/ate) usando o componente Popover + Calendar (datepicker do shadcn)
+- Filtrar os leads pela coluna `created_at` comparando com as datas selecionadas
+- Botao para limpar o filtro de datas
+- Posicionar os seletores junto aos filtros existentes
+
+### 3. Alterar copy do botao WhatsApp
+
+**Arquivo: `src/components/quiz/QuizResult.tsx`**
+- Trocar o texto do botao CTA de "QUERO SER INCOMPARAVEL" para "Quero ajustar meu posicionamento agora"
+- Manter o mesmo comportamento de redirecionamento para WhatsApp
+
+---
 
 ### Secao tecnica
 
-**Edge Function create-admin:**
-```text
-- Import createClient from @supabase/supabase-js
-- Usa SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
-- POST handler:
-  1. supabase.auth.admin.createUser({ email, password, email_confirm: true })
-  2. INSERT INTO user_roles (user_id, role) VALUES (new_user.id, 'admin')
-  3. Retorna sucesso
-- Funcao sera chamada uma vez para setup e pode ser deletada depois
-```
+**CRM.tsx - Detalhamento de respostas:**
+- Importar `Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger` de `@/components/ui/dialog`
+- Importar `quizQuestions` de `@/components/quiz/QuizData`
+- Criar componente inline `LeadAnswersDialog` que recebe `answers: number[]` e mapeia cada resposta ao texto da pergunta correspondente usando `quizQuestions[index].options.find(o => o.points === answer)`
+- Renderizar em lista formatada dentro do Dialog
 
-**Funcao exportToCSV no CRM.tsx:**
-```text
-- Mapeia filteredLeads para linhas CSV
-- Escapa campos com virgulas usando aspas duplas
-- Adiciona BOM UTF-8 para Excel reconhecer acentos
-- Cria link temporario com URL.createObjectURL e dispara click
-```
+**CRM.tsx - Filtro por datas:**
+- Adicionar estados `dateFrom` e `dateTo` (tipo `Date | undefined`)
+- Usar componente Popover + Calendar (ja disponivel no projeto) para selecao de datas
+- Adicionar logica no `filteredLeads` para comparar `created_at` com o range de datas
+- Usar `format` de `date-fns` para exibir as datas selecionadas nos botoes
 
-### Ordem de implementacao
-
-1. Criar Edge Function `create-admin`
-2. Deploy e invocar para criar o usuario
-3. Adicionar botao e funcao de exportar CSV ao CRM
-4. Testar login com as credenciais e exportacao
-
+**QuizResult.tsx - Copy do botao:**
+- Linha 100: trocar `"QUERO SER INCOMPARAVEL"` por `"Quero ajustar meu posicionamento agora"`
