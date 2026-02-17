@@ -1,12 +1,21 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import QuizOpening from "./QuizOpening";
 import QuizQuestion from "./QuizQuestion";
 import QuizDataCapture, { LeadData } from "./QuizDataCapture";
 import QuizAnalyzing from "./QuizAnalyzing";
 import QuizResult from "./QuizResult";
 import { quizQuestions, getResultByScore } from "./QuizData";
+import { supabase } from "@/integrations/supabase/client";
 
 type QuizStep = "opening" | "questions" | "capture" | "analyzing" | "result";
+
+interface UtmParams {
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  utm_term: string;
+  utm_content: string;
+}
 
 interface QuizState {
   step: QuizStep;
@@ -24,6 +33,17 @@ const Quiz = () => {
     leadData: null,
     totalScore: 0,
   });
+
+  const utmParams = useMemo<UtmParams>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      utm_source: params.get("utm_source") || "",
+      utm_medium: params.get("utm_medium") || "",
+      utm_campaign: params.get("utm_campaign") || "",
+      utm_term: params.get("utm_term") || "",
+      utm_content: params.get("utm_content") || "",
+    };
+  }, []);
 
   const handleStart = () => {
     setState((prev) => ({ ...prev, step: "questions" }));
@@ -69,19 +89,17 @@ const Quiz = () => {
       result: result.id,
       resultTitle: result.title,
       timestamp: new Date().toISOString(),
+      ...utmParams,
     };
 
     console.log("Lead captured:", payload);
 
-    // Send to Kommo via Kwid webhook (fire-and-forget)
-    fetch(
-      "https://data.widgets.wearekwid.com/api/webhook/34486363/15c0adf418ac74139c4d580c53e3c9e8c89c7da310b4be3e058c9f267bf085e6",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }
-    ).catch((err) => console.error("Webhook error:", err));
+    // Send to Kommo via Edge Function (fire-and-forget)
+    supabase.functions
+      .invoke("send-to-kommo", { body: payload })
+      .then(({ error }) => {
+        if (error) console.error("Webhook error:", error);
+      });
   };
 
   const handleAnalyzingComplete = useCallback(() => {
