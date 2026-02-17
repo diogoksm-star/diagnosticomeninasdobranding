@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Search, Users, RefreshCw } from "lucide-react";
+import { LogOut, Search, Users, RefreshCw, Download } from "lucide-react";
 
 interface Lead {
   id: string;
@@ -97,6 +97,38 @@ const CRM = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+  };
+
+  const exportToCSV = () => {
+    const escapeCSV = (val: string) => {
+      if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+        return `"${val.replace(/"/g, '""')}"`;
+      }
+      return val;
+    };
+
+    const headers = ["Nome", "Email", "WhatsApp", "Resultado", "Pontuação", "Respostas", "UTM Source", "UTM Medium", "UTM Campaign", "Data"];
+    const rows = filteredLeads.map((lead) => [
+      escapeCSV(lead.name),
+      escapeCSV(lead.email),
+      escapeCSV(lead.whatsapp),
+      escapeCSV(lead.result_title),
+      String(lead.total_score),
+      `"${(lead.answers || []).join(", ")}"`,
+      escapeCSV(lead.utm_source || ""),
+      escapeCSV(lead.utm_medium || ""),
+      escapeCSV(lead.utm_campaign || ""),
+      new Date(lead.created_at).toLocaleDateString("pt-BR"),
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `leads-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const filteredLeads = leads.filter((lead) => {
@@ -209,6 +241,10 @@ const CRM = () => {
             </Button>
             <Button variant="outline" size="sm" onClick={fetchLeads} className="rounded-full">
               <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportToCSV} className="rounded-full">
+              <Download className="mr-1 h-4 w-4" />
+              CSV
             </Button>
           </div>
         </div>
