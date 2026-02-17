@@ -1,35 +1,46 @@
 
-## Restaurar Diagnóstico na Página + WhatsApp no Final
 
-### O que muda
+## Integrar Quiz com Kommo CRM via Webhook Kwid
 
-O fluxo atual vai de "Analisando..." direto para a tela de WhatsApp sem mostrar o diagnóstico. Vamos restaurar o fluxo original onde o diagnóstico completo aparece na página, com o botão de WhatsApp no final.
+### Abordagem
 
-### Novo fluxo
+Como o webhook da Kwid aceita POST direto, vamos enviar os dados do lead diretamente do frontend, sem necessidade de backend ou Edge Function. Isso simplifica a implementacao e evita configuracoes extras.
 
-1. Quiz (13 perguntas)
-2. Captura de dados (nome, email, WhatsApp)
-3. Tela "Analisando..." (3 segundos)
-4. **Tela de resultado completo** (mostra o diagnóstico com todo o conteúdo)
-5. Botão "QUERO SER INCOMPARÁVEL" no final do diagnóstico abre WhatsApp com mensagem específica por resultado
+### O que sera feito
 
-### Alterações técnicas
+**1. Atualizar `src/components/quiz/Quiz.tsx`**
+- No `handleLeadCapture`, alem do console.log, adicionar um `fetch` POST para o webhook da Kwid
+- Enviar todos os dados do lead: nome, email, WhatsApp, respostas (Q1-Q13), pontuacao total, resultado do diagnostico, data/hora
+- O envio sera fire-and-forget (nao bloqueia o fluxo do quiz — o usuario continua vendo "Analisando..." normalmente)
+- Tratar erros silenciosamente (apenas log no console)
 
-**1. `src/components/quiz/Quiz.tsx`**
-- Trocar o import de `QuizWhatsAppRedirect` de volta para `QuizResult`
-- Mudar o tipo `QuizStep` de `"whatsapp"` para `"result"`
-- Alterar `handleAnalyzingComplete` para ir para `"result"`
-- Renderizar `QuizResult` passando `result`, `score` e futuramente o número de WhatsApp
+**2. Dados enviados ao webhook**
 
-**2. `src/components/quiz/QuizResult.tsx`**
-- Já existe e já tem o botão WhatsApp com mensagem por diagnóstico
-- Atualizar as mensagens de WhatsApp para usar o mesmo formato do `QuizWhatsAppRedirect` (incluindo nome do usuário na mensagem)
-- Receber `userName` como prop adicional para incluir na mensagem
+```text
+{
+  name: "Nome do usuario",
+  email: "email@exemplo.com",
+  whatsapp: "(11) 99999-9999",
+  answers: [3, 2, 4, 1, ...],      // pontos de cada resposta (Q1-Q13)
+  totalScore: 42,
+  result: "diferenciado",           // ID do resultado
+  resultTitle: "POSICIONAMENTO DIFERENCIADO",
+  timestamp: "2026-02-17T14:30:00Z"
+}
+```
 
-**3. Kommo CRM**
-- A integração com Kommo requer o webhook/API que você ainda vai fornecer
-- Por enquanto, os dados do lead continuam sendo logados no console (nome, email, WhatsApp, respostas, pontuação, resultado)
-- Quando você enviar os dados do Kommo, criaremos um edge function para enviar os leads automaticamente
+### Detalhes tecnicos
+
+- URL do webhook: `https://data.widgets.wearekwid.com/api/webhook/34486363/15c0adf418ac74139c4d580c53e3c9e8c89c7da310b4be3e058c9f267bf085e6`
+- Metodo: POST com `Content-Type: application/json`
+- Sem autenticacao necessaria (o token ja esta na URL)
+- Envio assincrono — nao interfere na experiencia do usuario
+
+### Nota sobre seguranca
+
+A URL do webhook ficara visivel no codigo frontend. Isso e aceitavel para webhooks de ingestao de dados (somente escrita), mas se no futuro voce quiser proteger essa URL, podemos mover para uma Edge Function com Supabase Cloud.
 
 ### Resultado final
-O usuário verá seu diagnóstico completo na página e terá um botão no final para iniciar conversa no WhatsApp com a mensagem correta para seu tipo de resultado.
+
+Quando o usuario preencher nome, email e WhatsApp no quiz, os dados serao enviados automaticamente para o Kommo via webhook da Kwid, sem nenhuma acao adicional necessaria.
+
