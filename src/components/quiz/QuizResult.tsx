@@ -45,7 +45,7 @@ const QuizResult = ({ result, score, userName, whatsappNumber }: QuizResultProps
   const handleCTA = () => {
     const message = whatsappMessages[result.id] || whatsappMessages.invisivel;
     const fullMessage = encodeURIComponent(`${message}\n\nMeu nome: ${userName || "Não informado"}`);
-    const number = whatsappNumber || "5500000000000";
+    const number = whatsappNumber || "556599153409";
     window.open(`https://wa.me/${number}?text=${fullMessage}`, "_blank");
   };
 
