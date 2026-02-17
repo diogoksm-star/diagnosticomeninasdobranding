@@ -3,10 +3,10 @@ import QuizOpening from "./QuizOpening";
 import QuizQuestion from "./QuizQuestion";
 import QuizDataCapture, { LeadData } from "./QuizDataCapture";
 import QuizAnalyzing from "./QuizAnalyzing";
-import QuizWhatsAppRedirect from "./QuizWhatsAppRedirect";
+import QuizResult from "./QuizResult";
 import { quizQuestions, getResultByScore } from "./QuizData";
 
-type QuizStep = "opening" | "questions" | "capture" | "analyzing" | "whatsapp";
+type QuizStep = "opening" | "questions" | "capture" | "analyzing" | "result";
 
 interface QuizState {
   step: QuizStep;
@@ -70,7 +70,7 @@ const Quiz = () => {
   };
 
   const handleAnalyzingComplete = useCallback(() => {
-    setState((prev) => ({ ...prev, step: "whatsapp" }));
+    setState((prev) => ({ ...prev, step: "result" }));
   }, []);
 
   const result = getResultByScore(state.totalScore);
@@ -96,9 +96,10 @@ const Quiz = () => {
         <QuizAnalyzing onComplete={handleAnalyzingComplete} />
       )}
 
-      {state.step === "whatsapp" && state.leadData && (
-        <QuizWhatsAppRedirect
-          resultId={result.id}
+      {state.step === "result" && state.leadData && (
+        <QuizResult
+          result={result}
+          score={state.totalScore}
           userName={state.leadData.name}
         />
       )}
