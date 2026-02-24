@@ -1,48 +1,22 @@
 
 
-## Melhorias no CRM e botao WhatsApp
+## Ajuste de responsividade da pagina de resultado no mobile
 
-### 1. Detalhamento das respostas no CRM
+### Problema
+O botao "Quero ajustar meu posicionamento agora" esta transbordando a tela em dispositivos mobile devido ao padding fixo (`px-12`) e texto largo sem quebra de linha.
 
-Na tabela de leads do CRM, a coluna "Respostas" atualmente mostra apenas os numeros (ex: "3, 2, 4, 1..."). Vamos substituir por um botao/tooltip que ao clicar expande um painel mostrando cada pergunta com a resposta escolhida e a pontuacao.
-
-**Arquivo: `src/pages/CRM.tsx`**
-- Importar `quizQuestions` de `QuizData.ts` para mapear as respostas aos textos das perguntas
-- Substituir a celula de texto simples por um componente expansivel (Collapsible ou Dialog) que mostra:
-  - Pergunta 1: "resposta escolhida" (X pts)
-  - Pergunta 2: "resposta escolhida" (X pts)
-  - ...e assim por diante para as 13 perguntas
-- Usar um botao "Ver detalhes" na celula da tabela que abre um Dialog com o detalhamento completo
-
-### 2. Filtro por datas no CRM
-
-**Arquivo: `src/pages/CRM.tsx`**
-- Adicionar dois seletores de data (de/ate) usando o componente Popover + Calendar (datepicker do shadcn)
-- Filtrar os leads pela coluna `created_at` comparando com as datas selecionadas
-- Botao para limpar o filtro de datas
-- Posicionar os seletores junto aos filtros existentes
-
-### 3. Alterar copy do botao WhatsApp
+### Solucao
 
 **Arquivo: `src/components/quiz/QuizResult.tsx`**
-- Trocar o texto do botao CTA de "QUERO SER INCOMPARAVEL" para "Quero ajustar meu posicionamento agora"
-- Manter o mesmo comportamento de redirecionamento para WhatsApp
 
----
+Ajustes no botao CTA:
+- Trocar `px-12` por `px-6 sm:px-12` para reduzir padding no mobile
+- Adicionar `w-full sm:w-auto` para o botao ocupar 100% da largura no mobile e voltar ao tamanho natural no desktop
+- Remover `whitespace-nowrap` (herdado do buttonVariants) adicionando `whitespace-normal` para permitir quebra de texto no mobile
+- Ajustar fonte: `text-base sm:text-lg` em vez de `text-lg`
 
-### Secao tecnica
+Ajustes no container do botao:
+- Adicionar `px-2 sm:px-0` ao wrapper `div` do botao para garantir margem lateral no mobile
 
-**CRM.tsx - Detalhamento de respostas:**
-- Importar `Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger` de `@/components/ui/dialog`
-- Importar `quizQuestions` de `@/components/quiz/QuizData`
-- Criar componente inline `LeadAnswersDialog` que recebe `answers: number[]` e mapeia cada resposta ao texto da pergunta correspondente usando `quizQuestions[index].options.find(o => o.points === answer)`
-- Renderizar em lista formatada dentro do Dialog
+Essas mudancas garantem que o botao se adapte a telas pequenas sem transbordar, mantendo a aparencia no desktop.
 
-**CRM.tsx - Filtro por datas:**
-- Adicionar estados `dateFrom` e `dateTo` (tipo `Date | undefined`)
-- Usar componente Popover + Calendar (ja disponivel no projeto) para selecao de datas
-- Adicionar logica no `filteredLeads` para comparar `created_at` com o range de datas
-- Usar `format` de `date-fns` para exibir as datas selecionadas nos botoes
-
-**QuizResult.tsx - Copy do botao:**
-- Linha 100: trocar `"QUERO SER INCOMPARAVEL"` por `"Quero ajustar meu posicionamento agora"`
