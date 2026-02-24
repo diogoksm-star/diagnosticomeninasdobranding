@@ -91,11 +91,11 @@ const QuizResult = ({ result, score, userName, whatsappNumber }: QuizResultProps
           </div>
 
           {/* CTA Button */}
-          <div className="text-center">
+          <div className="px-2 sm:px-0 text-center">
             <Button
               onClick={handleCTA}
               size="lg"
-              className="h-16 rounded-full px-12 text-lg font-bold shadow-brand transition-all hover:scale-105 sm:text-xl"
+              className="h-16 w-full sm:w-auto whitespace-normal rounded-full px-6 sm:px-12 text-base sm:text-lg font-bold shadow-brand transition-all hover:scale-105"
             >
               Quero ajustar meu posicionamento agora
             </Button>
