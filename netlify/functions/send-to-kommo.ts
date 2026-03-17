@@ -82,7 +82,7 @@ async function createKommoLead(
   utmSource: string
 ): Promise<number | null> {
   const PIPELINE_ID = 13161040; // Funil "Quizz"
-  const STATUS_ID = 101483524; // Etapa "Leads de entrada"
+  const STATUS_ID = 101483528; // Etapa "Contato inicial"
 
   const leadPayload = [
     {
