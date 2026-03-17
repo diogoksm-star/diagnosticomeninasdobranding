@@ -5,7 +5,6 @@ import QuizLeadField from "./QuizLeadField";
 import QuizAnalyzing from "./QuizAnalyzing";
 import QuizResult from "./QuizResult";
 import { quizQuestions, getResultByScore } from "./QuizData";
-import { supabase } from "@/integrations/supabase/client";
 
 type QuizStep = "opening" | "questions" | "analyzing" | "result";
 
@@ -109,11 +108,16 @@ const Quiz = () => {
 
       console.log("Lead captured:", payload);
 
-      supabase.functions
-        .invoke("send-to-kommo", { body: payload })
-        .then(({ error }) => {
-          if (error) console.error("Webhook error:", error);
-        });
+      fetch("/api/send-to-kommo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.success) console.error("Kommo error:", data);
+        })
+        .catch((err) => console.error("Webhook error:", err));
     } else {
       setState((prev) => ({
         ...prev,
