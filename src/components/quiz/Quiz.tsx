@@ -155,6 +155,10 @@ const Quiz = () => {
 
   const handleAnalyzingComplete = useCallback(() => {
     setState((prev) => ({ ...prev, step: "result" }));
+    // Dispara evento Lead no Facebook Pixel
+    if (typeof window !== "undefined" && (window as any).fbq) {
+      (window as any).fbq("track", "Lead");
+    }
   }, []);
 
   const result = getResultByScore(state.totalScore);
