@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { QuizResult as QuizResultType } from "./QuizData";
 import { cn } from "@/lib/utils";
+import { MessageCircle, ArrowRight } from "lucide-react";
 
 interface QuizResultProps {
   result: QuizResultType;
@@ -37,14 +38,14 @@ const QuizResult = ({ result, score, userName, whatsappNumber }: QuizResultProps
   };
 
   const whatsappMessages: Record<string, string> = {
-    invisivel: "Olá! Fiz o diagnóstico de posicionamento e quero receber meu resultado: Posicionamento Invisível 🔴",
-    notado: "Olá! Fiz o diagnóstico de posicionamento e quero receber meu resultado: Posicionamento Notado 🟠",
-    diferenciado: "Olá! Fiz o diagnóstico de posicionamento e quero receber meu resultado: Posicionamento Diferenciado 🟢",
+    invisivel: "Olá! Fiz o diagnóstico de posicionamento e meu resultado foi: Posicionamento Invisível 🔴. Quero entender como mudar isso.",
+    notado: "Olá! Fiz o diagnóstico de posicionamento e meu resultado foi: Posicionamento Notado 🟠. Quero dar o próximo passo.",
+    diferenciado: "Olá! Fiz o diagnóstico de posicionamento e meu resultado foi: Posicionamento Diferenciado 🟢. Quero consolidar meu território.",
   };
 
   const handleCTA = () => {
     const message = whatsappMessages[result.id] || whatsappMessages.invisivel;
-    const fullMessage = encodeURIComponent(`${message}\n\nMeu nome: ${userName || "Não informado"}`);
+    const fullMessage = encodeURIComponent(`${message}\n\nMeu nome: ${userName || "Não informado"}\nPontuação: ${score}/65`);
     const number = whatsappNumber || "556599153409";
     window.open(`https://wa.me/${number}?text=${fullMessage}`, "_blank");
   };
@@ -52,54 +53,90 @@ const QuizResult = ({ result, score, userName, whatsappNumber }: QuizResultProps
   return (
     <div className="min-h-screen px-4 py-12">
       <div className="mx-auto max-w-2xl">
-        <div className="animate-fade-up">
-          {/* Result Badge */}
-          <div className="mb-6 text-center">
-            <span
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full border-2 px-6 py-3 text-lg font-bold",
-                getResultColor()
-              )}
-            >
-              {getResultEmoji()} {result.title}
-            </span>
-          </div>
+        {/* Greeting */}
+        {userName && (
+          <p
+            className="mb-4 text-center text-lg text-muted-foreground opacity-0 animate-fade-in"
+            style={{ animationDelay: "0.1s" }}
+          >
+            {userName}, aqui está seu diagnóstico:
+          </p>
+        )}
 
-          {/* Score Display */}
-          <div className="mb-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              Sua pontuação: <span className="font-bold">{score}</span> de 65
-              pontos
-            </p>
-          </div>
+        {/* Result Badge */}
+        <div
+          className="mb-6 text-center opacity-0 animate-badge-in"
+          style={{ animationDelay: "0.3s" }}
+        >
+          <span
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full border-2 px-6 py-3 text-lg font-bold",
+              getResultColor()
+            )}
+          >
+            {getResultEmoji()} {result.title}
+          </span>
+        </div>
 
-          {/* Result Content */}
-          <div className="mb-10 space-y-6 rounded-3xl bg-card p-6 shadow-card sm:p-8">
+        {/* Score */}
+        <div
+          className="mb-8 text-center opacity-0 animate-fade-in"
+          style={{ animationDelay: "0.5s" }}
+        >
+          <p className="text-sm text-muted-foreground">
+            Sua pontuação: <span className="font-bold text-foreground">{score}</span> de 65
+            pontos
+          </p>
+        </div>
+
+        {/* Result Content */}
+        <div
+          className="mb-10 rounded-3xl bg-card p-6 shadow-card sm:p-8 opacity-0 animate-slide-up"
+          style={{ animationDelay: "0.6s" }}
+        >
+          <div className="space-y-5">
             {result.content.map((paragraph, index) => (
               <p
                 key={index}
                 className={cn(
-                  "leading-relaxed",
+                  "leading-relaxed opacity-0 animate-text-reveal",
                   index < 2
                     ? "text-xl font-semibold text-secondary sm:text-2xl"
                     : "text-base text-muted-foreground sm:text-lg"
                 )}
+                style={{ animationDelay: `${0.8 + index * 0.1}s` }}
               >
                 {paragraph}
               </p>
             ))}
           </div>
+        </div>
 
-          {/* CTA Button */}
-          <div className="px-2 sm:px-0 text-center">
-            <Button
-              onClick={handleCTA}
-              size="lg"
-              className="h-16 w-full sm:w-auto whitespace-normal rounded-full px-6 sm:px-12 text-base sm:text-lg font-bold shadow-brand transition-all hover:scale-105"
-            >
-              Quero ajustar meu posicionamento agora
-            </Button>
-          </div>
+        {/* CTA Section */}
+        <div
+          className="rounded-3xl border-2 border-primary/20 bg-primary/5 p-6 text-center sm:p-8 opacity-0 animate-slide-up"
+          style={{ animationDelay: `${0.8 + result.content.length * 0.1 + 0.2}s` }}
+        >
+          <h3 className="mb-2 text-xl font-bold text-secondary sm:text-2xl">
+            {result.id === "invisivel" && "Pronta pra sair da invisibilidade?"}
+            {result.id === "notado" && "Pronta pra virar a escolha óbvia?"}
+            {result.id === "diferenciado" && "Pronta pra se tornar incomparável?"}
+          </h3>
+          <p className="mb-6 text-muted-foreground">
+            Fale com nossa equipe e descubra o caminho personalizado para o seu próximo nível.
+          </p>
+          <Button
+            onClick={handleCTA}
+            size="lg"
+            className="h-16 w-full sm:w-auto whitespace-normal rounded-full px-6 sm:px-12 text-base sm:text-lg font-bold shadow-brand transition-all hover:scale-105 hover:brightness-110 gap-2 animate-pulse-glow"
+          >
+            <MessageCircle className="h-5 w-5" />
+            Falar com a equipe no WhatsApp
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Atendimento humano. Sem robô, sem spam.
+          </p>
         </div>
       </div>
     </div>

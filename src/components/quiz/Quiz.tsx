@@ -1,13 +1,13 @@
 import { useState, useCallback, useMemo } from "react";
 import QuizOpening from "./QuizOpening";
 import QuizQuestion from "./QuizQuestion";
-import QuizDataCapture, { LeadData } from "./QuizDataCapture";
+import QuizLeadField from "./QuizLeadField";
 import QuizAnalyzing from "./QuizAnalyzing";
 import QuizResult from "./QuizResult";
 import { quizQuestions, getResultByScore } from "./QuizData";
 import { supabase } from "@/integrations/supabase/client";
 
-type QuizStep = "opening" | "questions" | "capture" | "analyzing" | "result";
+type QuizStep = "opening" | "questions" | "analyzing" | "result";
 
 interface UtmParams {
   utm_source: string;
@@ -17,20 +17,52 @@ interface UtmParams {
   utm_content: string;
 }
 
+interface LeadFields {
+  name: string;
+  whatsapp: string;
+  email: string;
+}
+
+// Steps in the quiz flow: questions intercalated with lead fields
+// After question 3 → ask name
+// After question 7 → ask whatsapp
+// After question 11 → ask email
+type FlowItemType = "question" | "lead_name" | "lead_whatsapp" | "lead_email";
+
+interface FlowItem {
+  type: FlowItemType;
+  questionIndex?: number; // only for type "question"
+}
+
+// Build the flow: 13 questions + 3 lead fields = 16 total steps
+const buildFlow = (): FlowItem[] => {
+  const flow: FlowItem[] = [];
+  for (let i = 0; i < quizQuestions.length; i++) {
+    flow.push({ type: "question", questionIndex: i });
+    if (i === 2) flow.push({ type: "lead_name" });
+    if (i === 6) flow.push({ type: "lead_whatsapp" });
+    if (i === 10) flow.push({ type: "lead_email" });
+  }
+  return flow;
+};
+
+const FLOW = buildFlow();
+const TOTAL_STEPS = FLOW.length;
+
 interface QuizState {
   step: QuizStep;
-  currentQuestionIndex: number;
+  flowIndex: number;
   answers: number[];
-  leadData: LeadData | null;
+  leadData: LeadFields;
   totalScore: number;
 }
 
 const Quiz = () => {
   const [state, setState] = useState<QuizState>({
     step: "opening",
-    currentQuestionIndex: 0,
+    flowIndex: 0,
     answers: [],
-    leadData: null,
+    leadData: { name: "", whatsapp: "", email: "" },
     totalScore: 0,
   });
 
@@ -45,6 +77,52 @@ const Quiz = () => {
     };
   }, []);
 
+  const advanceFlow = (newState: Partial<QuizState>) => {
+    const nextIndex = (newState.flowIndex ?? state.flowIndex) + 1;
+
+    if (nextIndex >= TOTAL_STEPS) {
+      // Quiz complete — go to analyzing
+      const finalScore = newState.totalScore ?? state.totalScore;
+      const finalAnswers = newState.answers ?? state.answers;
+      const finalLead = newState.leadData ?? state.leadData;
+
+      setState((prev) => ({
+        ...prev,
+        ...newState,
+        flowIndex: nextIndex,
+        step: "analyzing",
+      }));
+
+      // Send lead data
+      const result = getResultByScore(finalScore);
+      const payload = {
+        name: finalLead.name || "Visitante",
+        email: finalLead.email,
+        whatsapp: finalLead.whatsapp,
+        answers: finalAnswers,
+        totalScore: finalScore,
+        result: result.id,
+        resultTitle: result.title,
+        timestamp: new Date().toISOString(),
+        ...utmParams,
+      };
+
+      console.log("Lead captured:", payload);
+
+      supabase.functions
+        .invoke("send-to-kommo", { body: payload })
+        .then(({ error }) => {
+          if (error) console.error("Webhook error:", error);
+        });
+    } else {
+      setState((prev) => ({
+        ...prev,
+        ...newState,
+        flowIndex: nextIndex,
+      }));
+    }
+  };
+
   const handleStart = () => {
     setState((prev) => ({ ...prev, step: "questions" }));
   };
@@ -52,54 +130,23 @@ const Quiz = () => {
   const handleAnswer = (points: number) => {
     const newAnswers = [...state.answers, points];
     const newScore = state.totalScore + points;
-    const nextQuestionIndex = state.currentQuestionIndex + 1;
-
-    if (nextQuestionIndex >= quizQuestions.length) {
-      setState((prev) => ({
-        ...prev,
-        answers: newAnswers,
-        totalScore: newScore,
-        step: "capture",
-      }));
-    } else {
-      setState((prev) => ({
-        ...prev,
-        answers: newAnswers,
-        totalScore: newScore,
-        currentQuestionIndex: nextQuestionIndex,
-      }));
-    }
+    advanceFlow({
+      answers: newAnswers,
+      totalScore: newScore,
+      flowIndex: state.flowIndex,
+    });
   };
 
-  const handleLeadCapture = (data: LeadData) => {
-    setState((prev) => ({
-      ...prev,
-      leadData: data,
-      step: "analyzing",
-    }));
+  const handleLeadField = (field: keyof LeadFields, value: string) => {
+    const newLeadData = { ...state.leadData, [field]: value };
+    advanceFlow({
+      leadData: newLeadData,
+      flowIndex: state.flowIndex,
+    });
+  };
 
-    const result = getResultByScore(state.totalScore);
-    
-    const payload = {
-      name: data.name,
-      email: data.email,
-      whatsapp: data.whatsapp,
-      answers: state.answers,
-      totalScore: state.totalScore,
-      result: result.id,
-      resultTitle: result.title,
-      timestamp: new Date().toISOString(),
-      ...utmParams,
-    };
-
-    console.log("Lead captured:", payload);
-
-    // Send to Kommo via Edge Function (fire-and-forget)
-    supabase.functions
-      .invoke("send-to-kommo", { body: payload })
-      .then(({ error }) => {
-        if (error) console.error("Webhook error:", error);
-      });
+  const handleLeadSkip = () => {
+    advanceFlow({ flowIndex: state.flowIndex });
   };
 
   const handleAnalyzingComplete = useCallback(() => {
@@ -107,29 +154,56 @@ const Quiz = () => {
   }, []);
 
   const result = getResultByScore(state.totalScore);
+  const currentFlowItem = FLOW[state.flowIndex] || FLOW[FLOW.length - 1];
 
   return (
     <div className="min-h-screen bg-background">
       {state.step === "opening" && <QuizOpening onStart={handleStart} />}
 
-      {state.step === "questions" && (
+      {state.step === "questions" && currentFlowItem.type === "question" && (
         <QuizQuestion
-          question={quizQuestions[state.currentQuestionIndex]}
-          currentIndex={state.currentQuestionIndex}
-          totalQuestions={quizQuestions.length}
+          question={quizQuestions[currentFlowItem.questionIndex!]}
+          currentIndex={state.flowIndex}
+          totalQuestions={TOTAL_STEPS}
           onAnswer={handleAnswer}
         />
       )}
 
-      {state.step === "capture" && (
-        <QuizDataCapture onSubmit={handleLeadCapture} />
+      {state.step === "questions" && currentFlowItem.type === "lead_name" && (
+        <QuizLeadField
+          field="name"
+          currentIndex={state.flowIndex}
+          totalQuestions={TOTAL_STEPS}
+          onSubmit={(val) => handleLeadField("name", val)}
+          onSkip={handleLeadSkip}
+        />
+      )}
+
+      {state.step === "questions" && currentFlowItem.type === "lead_whatsapp" && (
+        <QuizLeadField
+          field="whatsapp"
+          currentIndex={state.flowIndex}
+          totalQuestions={TOTAL_STEPS}
+          onSubmit={(val) => handleLeadField("whatsapp", val)}
+          onSkip={handleLeadSkip}
+        />
+      )}
+
+      {state.step === "questions" && currentFlowItem.type === "lead_email" && (
+        <QuizLeadField
+          field="email"
+          currentIndex={state.flowIndex}
+          totalQuestions={TOTAL_STEPS}
+          onSubmit={(val) => handleLeadField("email", val)}
+          onSkip={handleLeadSkip}
+        />
       )}
 
       {state.step === "analyzing" && (
         <QuizAnalyzing onComplete={handleAnalyzingComplete} />
       )}
 
-      {state.step === "result" && state.leadData && (
+      {state.step === "result" && (
         <QuizResult
           result={result}
           score={state.totalScore}
